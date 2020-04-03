@@ -1,0 +1,391 @@
+openapi: 3.0.0
+
+info:
+  description: User Management API Documentation
+  version: "1.0.0"
+  title: User Management API
+  contact:
+    email: NeedTo@EnterAnAddress.com
+  
+tags:
+  - name: Manage Users
+    description: Management of Users
+ 
+paths:
+  /api/v1/tenant/users:
+
+    get:
+      tags:
+        - 'Tenant Users'
+      summary: 'Return a list of all Users to a specific tenant'
+      description: >-
+        Get List of all available users within a specific tenant
+      parameters:
+        - $ref: ''
+      responses:
+        '200':
+          description: All Users under a given Tenant are returned as intended
+          content:
+            application/json:
+              schema:
+                #reference the User properties in the schema below
+                $ref: '#/components/parameters/User'
+        '400':
+          description: invalid request syntax
+        '401':
+          description: invalid credentials; unauthorized access
+          # $ref: '#/components/responses/401'
+        '403':
+          description: forbidden access to resource
+          # $ref: '#/components/responses/403'
+            
+  /api/v1/tenant/users/{id}:
+  
+    get:
+      tags:
+        - 'Tenant Users'
+      summary: "Get user, under a specific tenant, by Id"
+      description: >-
+        Get a User, while under the subdomain of the tenant, by their User Id
+      parameters:
+        - $ref: ''
+        - in: path
+          name: id
+          required: true
+          description: return User information corresponding to the User Id for a given tenant
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User data matching the given User Id, under the provided tenant, is returned as intended
+          content:
+            application/json:
+              schema:
+                #reference the User properties in the schema below
+                $ref: '#/components/parameters/User'
+        '400':
+          description: invalid request syntax
+        '422':
+          description: incomplete user information; one or more required fields are missing, or user does not exist in database
+
+
+  
+    patch:
+      tags:
+        - 'Tenant Users'
+      summary: "Update or Patch a user's info, by their User Id"
+      description: >-
+        Update User information, by their User Id
+      parameters:
+        - $ref: '#/components/parameters/User'
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patch'
+      responses:
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '422':
+          $ref: '#/components/responses/422'
+        '200':
+          description: 'OK'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original:
+                    $ref: '#/components/schemas/User'
+                  updated:
+                    $ref: '#/components/schemas/User'
+  
+    delete:
+      tags:
+        - 'Tenant Users'
+      summary: "Remove a user by their User Id"
+      description: >-
+        Delet the User, within the database, by that User Id; regardless of tenant
+      parameters:
+        - $ref: '#/components/parameters/User'
+        - in: path
+          name: id
+          required: true
+          description: id of the User that is intended to be removed from the database
+          schema:
+            type: string
+      responses:
+        '400':
+          description: invalid request syntax
+          # $ref: '#/components/responses/400'
+        '401':
+          description: invalid credentials; unauthorized access
+          # $ref: '#/components/responses/401'
+        '403':
+          description: forbidden access to resource
+          # $ref: '#/components/responses/403'
+        '200':
+          description: User has been removed from the database
+            
+
+  /api/v1/users:
+
+    get:
+      tags:
+        - 'Super Admin Users'
+      summary: '*To be used by Super Admins only: return a list of all Users in the database'
+      description: >-
+        Get List of all available users
+      parameters:
+        - $ref: '#/components/parameters/User'
+      responses:
+        '200':
+          description: A list of Users are returned as intended
+          content:
+            application/json:
+              schema:
+                #reference the User properties in the schema below
+                $ref: '#/components/parameters/User'
+        '400':
+          description: invalid request syntax
+        '401':
+          description: invalid credentials; unauthorized access
+          # $ref: '#/components/responses/401'
+        '403':
+          description: forbidden access to resource
+          # $ref: '#/components/responses/403'
+          
+  /api/v1/users/{id}:
+
+    get:
+      tags:
+        - 'Super Admin Users'
+      summary: "*To be used by Super Admins only: retrieve a user by their User Id; regardless of tenant "
+      description: >-
+        Get a User, within the database regardless of tenant, by their User id
+      parameters:
+        - $ref: '#/components/parameters/User'
+        - in: path
+          name: id
+          required: true
+          description: return User information corresponding to the User Id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User data matching given User Id is returned as intended
+          content:
+            application/json:
+              schema:
+                #reference the User properties in the schema below
+                $ref: '#/components/parameters/User'
+        '400':
+          description: invalid request syntax
+        '422':
+          description: incomplete user information; one or more required fields are missing, or user does not exist in database
+  
+    patch:
+      tags:
+        - 'Super Admin Users'
+      summary: "*To be used by Super Admins only: update a user by their User Id; regardless of tenant "
+      description: >-
+        Update User information, by their User Id
+      parameters:
+        - $ref: '#/components/parameters/User'
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Patch'
+      responses:
+        '400':
+          $ref: '#/components/responses/400'
+        '401':
+          $ref: '#/components/responses/401'
+        '403':
+          $ref: '#/components/responses/403'
+        '422':
+          $ref: '#/components/responses/422'
+        '200':
+          description: 'OK'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  original:
+                    $ref: '#/components/schemas/User'
+                  updated:
+                    $ref: '#/components/schemas/User'
+  
+    delete:
+      tags:
+        - 'Super Admin Users'
+      summary: "*To be used by Super Admins only: remove a user by their User Id; regardless of tenant "
+      description: >-
+        Delet the User, within the database, by that User Id; regardless of tenant
+      parameters:
+        - $ref: '#/components/parameters/User'
+        - in: path
+          name: id
+          required: true
+          description: id of the User that is intended to be removed from the database
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        '400':
+          description: invalid request syntax
+          # $ref: '#/components/responses/400'
+        '401':
+          description: invalid credentials; unauthorized access
+          # $ref: '#/components/responses/401'
+        '403':
+          description: forbidden access to resource
+          # $ref: '#/components/responses/403'
+        '200':
+          description: User has been removed from the database
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '711843'
+        properties:
+          type: object
+          properties:
+            user_name:
+              type: string
+              example: 'JonahJameson'
+            email:
+              type: string
+              example: 'jonahj@ge.com'
+            phonenumber:
+              type: string
+              example: "773-555-5555"
+            userType:
+              type: string
+              example: "admin"
+            location:
+              type: object
+              properties:
+                street: 
+                  type: string
+                  example: '123 Main Street Suite 111'
+                city:
+                  type: string
+                  example: "Portland"
+                state: 
+                  type: string
+                  example: "OR"
+                zip_code:
+                  type: string
+                  example: '90315'
+                countryCode:
+                  type: string
+                  example: 'UK'
+            tenant:
+              type: string
+              # depending on how the tenant name is set up:
+              example: "General Electric or GE"
+                
+    Error:
+      type: object
+      properties:
+        errorCode:
+          type: string
+        errorDescription:
+          type: string
+    
+    Patch:
+      type: object
+      required:
+       - 'op'
+       - 'path'
+      properties: 
+       op: 
+        type: string 
+        enum:
+         - 'add'
+         - 'remove'
+         - 'replace'
+       path: 
+        type: string 
+       value: 
+        type: object      
+            
+            
+  parameters:
+    Tenant:
+      name: X-Tenant
+      in: header
+      description: 'The tenant context included with the request.'
+      required: true
+      schema:
+        type: string
+        
+    User:
+      name: X-User
+      in: header
+      description: 'The user context included with the request.'
+      required: true
+      schema:
+        type: string
+        
+          
+# Added by API Auto Mocking Plugin
+  responses: 
+    400:
+      description: 'Bad Request'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+            
+    401:
+      description: 'Unauthorized'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    403:
+      description: 'Forbidden'
+      content:
+        application/json:
+          schema:
+             $ref: '#/components/schemas/Error'
+    404:
+      description: 'Not Found'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    422:
+      description: 'Unprocessable Entity, Incomplete information; one or more required fields are missing, or data does not exist in database'
+      content:
+        application/json:
+          schema:
+            $ref: 'components/schemas/Error'
+
+            
+   
