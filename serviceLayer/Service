@@ -1,0 +1,262 @@
+package demo.serviceLayer;// The main portion of our
+
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AnonymousAWSCredentials;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.cognitoidentity.AmazonCognitoIdentity;
+import com.amazonaws.services.cognitoidentity.AmazonCognitoIdentityClientBuilder;
+import com.amazonaws.services.cognitoidentity.model.*;
+import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProvider;
+import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProviderClientBuilder;
+import com.amazonaws.services.cognitoidp.model.*;
+import demo.AuthenticationHelper;
+import demo.CognitoJWTParser;
+import demo.domain.Constants;
+import demo.domain.User;
+import demo.repository.UserRepo;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * The demo.serviceLayer.Service class abstracts the functionality of connecting to the Cognito user pool and Federated Identities.
+ */
+@Component
+public class Service {
+
+    @Autowired
+    private UserRepo userRepo;
+
+    public Service() {
+        Properties properties = new Properties();
+        InputStream input = null;
+
+        System.out.println(Service.class.getResource("/").getPath());
+        System.out.println("");
+
+        try {
+            input = getClass()
+                    .getClassLoader()
+                    .getResourceAsStream("config.properties");
+            properties.load(input);
+
+            // Read the properties values
+            Constants.POOL_ID = properties.getProperty("POOL_ID");
+            Constants.CLIENTAPP_ID = properties.getProperty("CLIENTAPP_ID");
+            Constants.FED_POOL_ID = properties.getProperty("FED_POOL_ID");
+            Constants.CUSTOMDOMAIN = properties.getProperty("CUSTOMDOMAIN");
+            Constants.REGION = properties.getProperty("REGION");
+
+        } catch (IOException exception) {
+            exception.printStackTrace();
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException exception) {
+                    exception.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public List<User> findAllUsers() throws Exception {
+        return userRepo.findAll();
+    }
+
+//    public User findUserByUserType(String userType) throws Exception {
+//        // get the database
+//        // figure out if word typed exist in the database
+//        // return
+//
+//        return userRepo.findUserByUserType(userType);
+//    }
+
+    public List<User> findAllUsersByUserType(String userType, String tenant) throws Exception {
+        List<User> tenantUsers = new ArrayList();
+        // first, get user's tenant
+        // second, get all users under user's tenant
+        // third, find all users with the user type that matches the userType requested
+        // if userType does not exist within the users retrieved, return a NoMatchFoundException (custom)
+        // if userType does exist, return all users with that userType
+
+//        if (userRepo.findAllUsersByTenant(tenant) == null) {
+//            System.out.println("This tenant is unavailable");
+//        } else {
+//            tenantUsers = userRepo.findAllUsersByTenant(tenant)
+//                    .stream()
+//                    .collect(Collectors.toList());
+//        }
+
+        try {
+            userRepo.findAllUsersByTenant(tenant);
+        } catch (HttpClientErrorException.UnprocessableEntity e) {
+            System.out.println("Unprocessable Entity Exception");
+        }
+        return tenantUsers;
+    }
+
+    public User findByUserId(String userid) throws Exception{
+        if (userRepo.findByUserId(userid) != null) {
+            return userRepo.findByUserId(userid);
+        }
+        // throw 422 error
+        return null;
+    }
+
+    public void updateUser(User user) {
+        userRepo.save(user);
+    }
+
+    public void deleteUser(String userid) {
+        System.out.println("'User "  + userid + " has been deleted'");
+    }
+
+    public String GetHostedSignInURL() {
+        String customUrl = "https://%s.auth.%s.amazoncognito.com/login?response_type=code&client_id=%s&redirect_uri=%s";
+
+        return String.format(customUrl, Constants.CUSTOMDOMAIN, Constants.REGION, Constants.CLIENTAPP_ID, Constants.REDIRECT_URL);
+    }
+
+    public String GetTokenURL() {
+        String customUrl = "https://%s.auth.%s.amazoncognito.com/oauth2/token";
+
+        return String.format(customUrl, Constants.CUSTOMDOMAIN, Constants.REGION);
+    }
+
+    public boolean SignUpUser(String username, String password, String email) {
+
+        // allows us to make calls into the User Pool service
+        AnonymousAWSCredentials awsCredentials = new AnonymousAWSCredentials();
+
+        // create a user sign up request form and populate it with fields from our user interface
+        AWSCognitoIdentityProvider cognitoIdentityProvider = AWSCognitoIdentityProviderClientBuilder
+                .standard() // creates a new instance of the builder with all defaults set
+                .withCredentials(new AWSStaticCredentialsProvider(awsCredentials)) // returns an object for chaining to the next function
+                .withRegion(Regions.fromName(Constants.REGION)) // region information
+                .build(); // finally build the identity client
+
+
+        SignUpRequest signUpRequest = new SignUpRequest();
+        signUpRequest.setClientId(Constants.CLIENTAPP_ID);
+        signUpRequest.setUsername(username);
+        signUpRequest.setPassword(password);
+        List<AttributeType> list = new ArrayList<>();
+
+//        AttributeType attributeType = new AttributeType();
+//        attributeType.setName("company");
+//        attributeType.setValue(company);
+//        list.add(attributeType);
+
+        AttributeType attributeType1 = new AttributeType();
+        attributeType1.setName("email");
+        attributeType1.setValue(email);
+        list.add(attributeType1);
+
+        signUpRequest.setUserAttributes(list);
+        System.out.println(list);
+
+        try {
+            SignUpResult signUpResult = cognitoIdentityProvider.signUp(signUpRequest);
+            System.out.println("SignUp Request result: " + signUpResult);
+        } catch (Exception exception) {
+            System.out.println(exception);
+            return false;
+        }
+        return true;
+    }
+
+    // We need to verify the user——currently the method required is a phone message, but we'll try to send to an email to save on resources during testing. Otherwise:
+    public boolean VerifyAccessCode(String username, String code) {
+
+        // Again we make calls the User Pool service
+        AnonymousAWSCredentials awsCredentials = new AnonymousAWSCredentials();
+
+        AWSCognitoIdentityProvider cognitoIdentityProvider = AWSCognitoIdentityProviderClientBuilder
+                .standard()
+                .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
+                .withRegion(Regions.fromName(Constants.REGION))
+                .build();
+
+        ConfirmSignUpRequest confirmSignUpRequest = new ConfirmSignUpRequest();
+        confirmSignUpRequest.setUsername(username);
+        confirmSignUpRequest.setConfirmationCode(code);
+        confirmSignUpRequest.setClientId(Constants.CLIENTAPP_ID);
+
+        System.out.println("username=" + username);
+        System.out.println("code=" + code);
+        System.out.println("clientid=" + Constants.CLIENTAPP_ID);
+
+        try {
+            ConfirmSignUpResult confirmSignUpResult = cognitoIdentityProvider.confirmSignUp(confirmSignUpRequest);
+            System.out.println("confirmSignupResult: " + confirmSignUpResult.toString());
+        } catch (Exception exception) {
+            System.out.println(exception);
+            return false;
+        }
+        return true;
+    }
+    public Credentials GetCredentials(String idprovider, String id) {
+        AnonymousAWSCredentials awsCredentials = new AnonymousAWSCredentials();
+
+        // Cognito Identity client that will now be talking to the Federated Identities service
+        AmazonCognitoIdentity provider = AmazonCognitoIdentityClientBuilder
+                .standard()
+                .withCredentials(new AWSStaticCredentialsProvider(awsCredentials))
+                .withRegion(Regions.fromName(Constants.REGION))
+                .build();
+
+
+        GetIdRequest idrequest = new GetIdRequest();
+        idrequest.setIdentityPoolId(Constants.FED_POOL_ID);
+        idrequest.addLoginsEntry(idprovider, id);
+        GetIdResult idResult = provider.getId(idrequest);
+
+        GetCredentialsForIdentityRequest request = new GetCredentialsForIdentityRequest();
+        request.setIdentityId(idResult.getIdentityId());
+        // adds a single Login Entry
+        request.addLoginsEntry(idprovider, id);
+
+        GetCredentialsForIdentityResult result = provider.getCredentialsForIdentity(request);
+        return result.getCredentials();
+    }
+
+    public String ValidateUser(String username, String password) {
+        AuthenticationHelper helper = new AuthenticationHelper(Constants.POOL_ID, Constants.CLIENTAPP_ID, "");
+        return helper.PerformSRPAuthentication(username, password);
+    }
+
+
+    public Credentials GetCredentials(String accesscode) {
+        Credentials credentials = null;
+
+        try {
+            Map<String, String> httpBodyParams = new HashMap<String, String>();
+            httpBodyParams.put(Constants.TOKEN_GRANT_TYPE, Constants.TOKEN_GRANT_TYPE_AUTH_CODE);
+            httpBodyParams.put(Constants.DOMAIN_QUERY_PARAM_CLIENT_ID, Constants.CLIENTAPP_ID);
+            httpBodyParams.put(Constants.DOMAIN_QUERY_PARAM_REDIRECT_URI, Constants.REDIRECT_URL);
+            httpBodyParams.put(Constants.TOKEN_AUTH_TYPE_CODE, accesscode);
+
+            AuthHttpClient httpClient = new AuthHttpClient();
+            URL url = new URL(GetTokenURL());
+            String result = httpClient.httpPost(url, httpBodyParams);
+            System.out.println(result);
+
+            JSONObject payload = CognitoJWTParser.getPayload(result);
+            String provider = payload.get("iss").toString().replace("https://", "");
+            credentials = GetCredentials(provider, result);
+
+            return credentials;
+        } catch (Exception exp) {
+            System.out.println(exp);
+        }
+        return credentials;
+    }
+}
